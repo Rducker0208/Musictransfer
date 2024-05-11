@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Select a playlist</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <meta charset="UTF-8">
+  </head>
+  <body class="text-bg-dark p-3">
+    <br><br><br><br>
+    <H1 class="text-center">Please enter your playlist id:</H1>
+    <div class="position-absolute top-50 start-50 translate-middle">
+      <form action="#" method="post">
+        <div class="col-auto">
+          <label for="yt_playlist_id" class="form-label">Playlist id:</label>
+        </div>
+        <div class="col-auto">
+          <input class="form-control" type="text" id="yt_playlist_id" name="yt_playlist_id" placeholder="Input id here" required>
+        </div>
+        <br>
+        <div class="col-auto">
+          <label class="form-label" for="sp_playlist_wanted_name">Wanted name:</label>
+        </div>
+        <div class="col-auto">
+          <input class="form-control" type="text" id="sp_playlist_wanted_name" name="sp_playlist_wanted_name" placeholder="playlist_wanted_name" required>
+        </div>
+        <br>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-secondary mb-3">Confirm</button>
+        </div>
+      </form>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,56 @@
+body {
+  margin: 0;
+  height: 100vh;
+  width: 100vw;
+}
+
+.background_mainscreen {
+  background-image: url("/static/greybg.jpg");
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative;
+  background-position: center center;
+  background-attachment: fixed;
+  height: 100vh;
+  }
+
+
+.select_text {
+  color: white;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  font-size: 50px;
+  font-family: monospace;
+}
+
+.id_label {
+  color: white;
+  font-size: 20px;
+  font-family: monospace;
+  margin-left: -20%;
+}
+
+.playlist_wanted_name_label {
+  color: white;
+  font-size: 20px;
+  font-family: monospace;
+  margin-left: -20%;
+}
+
+
+.id_input{
+ font-size: 20px;
+ font-family: monospace;
+ margin-left: auto;
+ margin-right: auto;
+ text-align: center;
+
+}
+
+
+.welcomelogo {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
