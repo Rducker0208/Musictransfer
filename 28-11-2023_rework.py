@@ -1,6 +1,6 @@
 # import pickle
 from flask import Flask, request, url_for, session, redirect, render_template
-from google_auth_oauthlib.flow import InstalledAppFlow  #, Flow
+from google_auth_oauthlib.flow import InstalledAppFlow
 from authlib.integrations.flask_client import OAuth
 from spotipy.oauth2 import SpotifyOAuth
 from flask_login import LoginManager
@@ -82,7 +82,7 @@ ids = []
 @login_manager.user_loader
 @app.route('/')
 def homepage():
-    return render_template('new_main.html')
+    return render_template('main.html')
 
 
 # Pagina om na inlog op spotify door te redirecten naar de get playlist paginas
@@ -129,6 +129,7 @@ def get_yt_playlist():
     print(yt_pl_ids)
     while True:
         if request.method == 'POST':
+            print('1')
             youtube_inputted_id = request.form['yt_playlist_id']
             spotify_playlist_wanted_name = request.form['sp_playlist_wanted_name']
             if youtube_inputted_id in yt_pl_ids:
@@ -316,7 +317,6 @@ def get_token():
 
 # Creert oauth voor spotify
 def create_spotify_oauth():
-    print('oauth')
     return SpotifyOAuth(
         client_id='ffdb071c081b4cbe880dfe549167e244',
         client_secret='206ce55f95f74a1099d7770b0311354b',
