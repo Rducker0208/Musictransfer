@@ -1,4 +1,6 @@
 import os
+
+import requests.exceptions
 import spotipy
 import jellyfish
 
@@ -32,6 +34,15 @@ sp_oauth = SpotifyOAuth(
 # spotify client
 sp = Spotify(auth_manager=sp_oauth)
 
+# Variables
+terms_to_remove: list = ['(Official Videoclip)', '(Official Video)', '[Official video]', '(Official Live Video)',
+                         '(Official Music Video)', '[Official Music Video]', '(Lyric Video)', '(Lyric)', 'VEVO',
+                         '[Official Video]', '(Official HD Music Video)', '(Official HD Video)', '(Official)',
+                         '(Official Lyric Video)', '- Topic', '[4K Upgrade]', '- Radio Edit']
+
+
+types_of_underscores: list = ['-', '-', '–', '-']
+
 
 class Spotify_functions:
     """Class that contains all functions that use spotify api"""
@@ -55,12 +66,61 @@ class Spotify_functions:
 
         self.user_id = self.sp.current_user()['id']
 
+    def validate_artist(self, artist_name: str) -> bool:
+        """Search for an artist to see if the string passed to this function is an artist"""
+
+        artist_search_result = self.sp.search(q=artist_name, type='artist', limit=5)
+
+        # try 5 times to see if an artist is valid
+        for i in range(5):
+            artist = artist_search_result['artists']['items'][i]['name']
+
+            if jellyfish.jaro_similarity(artist, artist_name) > 0.7:
+                return True
+
+        else:
+            return False
+
+    def validate_playlist(self, playlist_id) -> bool:
+        """Check if the id submitted is the id of a valid playlist"""
+
+        try:
+            _ = self.sp.playlist(playlist_id)
+            return True
+        except requests.exceptions.HTTPError:
+            return False
+
+    def get_playlist_items(self, playlist_id) -> list[str]:
+        """Function that gets song names from a Spotify playlist"""
+
+        song_names = []
+
+        playlist_items = self.sp.playlist_items(playlist_id)
+
+        total_songs = len(playlist_items['items'])
+        estimate_time(total_songs)
+
+        while True:
+            for index in range(total_songs):
+                artist = playlist_items['items'][index]['track']['artists'][0]['name']
+                raw_song_name = playlist_items['items'][index]['track']['name']
+                full_song_name = f'{artist} - {raw_song_name} - official audio'
+                song_names.append(full_song_name)
+
+            if playlist_items['next']:
+                playlist_items = self.sp.next(playlist_items)
+            else:
+                break
+
+        return song_names
+
     def create_spotify_playlist(self, playlist_name, song_names) -> None:
         """Use Spotify client to create a new playlist on the current user's account and transfer
          the songs of the chosen youtube playlist"""
 
         # create a new playlist and get its id
-        new_playlist = sp.user_playlist_create(user=self.user_id, name=playlist_name, public=False, collaborative=False)
+        new_playlist = self.sp.user_playlist_create(user=self.user_id, name=playlist_name,
+                                                    public=False, collaborative=False)
         playlist_id = new_playlist['id']
 
         # Transfer every song
@@ -78,8 +138,20 @@ class Spotify_functions:
                 full_title = f'{song_artist} - {song_title}'
                 full_title_2 = f'{song_title} - {song_artist}'
 
-                similarity = jellyfish.jaro_similarity(song_name, full_title)
-                similarity_2 = jellyfish.jaro_similarity(song_name, full_title_2)
+                # remove unwanted terms from song name
+                for term in terms_to_remove:
+                    full_title = full_title.replace(term, '')
+                    full_title = full_title.replace(term.upper(), '')
+
+                    full_title_2 = full_title_2.replace(term, '')
+                    full_title_2 = full_title_2.replace(term.upper(), '')
+
+                for length in range(2, 6):
+                    full_title = full_title.replace(' ' * length, ' ')
+                    full_title_2 = full_title_2.replace(' ' * length, ' ')
+
+                similarity = jellyfish.jaro_similarity(song_name.upper(), full_title.upper())
+                similarity_2 = jellyfish.jaro_similarity(song_name.upper(), full_title_2.upper())
 
                 if similarity > highest_similarity or similarity_2 > highest_similarity:
 
@@ -96,25 +168,20 @@ class Spotify_functions:
 
                         else:
                             highest_similarity = similarity_2
-
                         song_uri = spotify_song['tracks']['items'][i]['uri']
 
             self.sp.playlist_add_items(playlist_id=playlist_id, items=[song_uri])
 
-    def check_artist(self, artist_name: str) -> bool:
-        """Search for an artist to see if the string passed to this function is an artist"""
 
-        artist_search_result = self.sp.search(q=artist_name, type='artist', limit=5)
+def estimate_time(song_count: int) -> None:
+    """Function that gets the estimated time for transfering to Youtube"""
 
-        # try 5 times to see if an artist is valid
-        for i in range(5):
-            artist = artist_search_result['artists']['items'][i]['name']
+    tps = 1.6
 
-            if jellyfish.jaro_similarity(artist, artist_name) > 0.7:
-                return True
+    seconds: float = tps * song_count
 
-        else:
-            return False
+    hours = int(seconds // 3600)
+    minutes = int((seconds - (hours * 3600)) / 60)
+    seconds: float = seconds - (hours * 3600) - (minutes * 60)
 
-    def get_playlist_items(self):
-        pass
+    print(f'Estimated time: {hours} hours, {minutes} minutes and {round(seconds, 1)} seconds.')

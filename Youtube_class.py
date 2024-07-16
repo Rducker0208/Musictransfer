@@ -1,24 +1,22 @@
 import os
-import re
-import ytmusicapi
-import SongNameSplit
-import googleapiclient.errors
+
+import jellyfish
 import googleapiclient.discovery
 import google_auth_oauthlib
 
-from User_class import User
 from Spotify_class import Spotify_functions
+from artist_data import artists
 
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
 from google_auth_oauthlib.flow import InstalledAppFlow
+from youtube_search import YoutubeSearch
+
 
 # import setups
 load_dotenv()
-yt_api_unofficial = ytmusicapi.YTMusic()
 
 # Class setups
-User = User()
 Spotify = Spotify_functions()
 
 # Google/Youtube setup
@@ -35,7 +33,10 @@ YT_DEV_KEY = None
 terms_to_remove: list = ['(Official Videoclip)', '(Official Video)', '[Official video]', '(Official Live Video)',
                          '(Official Music Video)', '[Official Music Video]', '(Lyric Video)', '(Lyric)', 'VEVO',
                          '[Official Video]', '(Official HD Music Video)', '(Official HD Video)', '(Official)',
-                         '(Official Lyric Video)', '- Topic', '[4K Upgrade]']
+                         '(Official Lyric Video)', '- Topic', '[4K Upgrade]', '- Radio Edit']
+
+
+types_of_underscores: list = ['-', '-', '–', '-']
 
 
 class Youtube:
@@ -83,7 +84,7 @@ class Youtube:
         response = request.execute()
 
         # Response is empty if a playlist is invalid
-        if not response['items']:
+        if not response:
             return False
         else:
             return True
@@ -92,6 +93,7 @@ class Youtube:
         """Function that uses yt api to get song names from a playlist"""
 
         next_page_token: str | None = None
+        first_call = True
         song_names: list = []
 
         while True:
@@ -105,6 +107,10 @@ class Youtube:
                 playlist_request = self.youtube_build.playlistItems().list(part='snippet',
                                                                            playlistId=playlist_id,
                                                                            maxResults=50)
+
+                if first_call:
+                    pl_length = playlist_request.execute()['pageInfo']['totalResults']
+                    estimate_time(pl_length)
 
             playlist_response = playlist_request.execute()
             items_on_page: int = len(playlist_response['items'])
@@ -134,50 +140,77 @@ class Youtube:
 
         return song_names
 
+    def create_yt_playlist(self, playlist_name, song_names):
+        """Function that uses yt api to create a new playlist and inserts desired songs into it"""
+
+        # Create a new playlist and get its id
+        new_pl = self.youtube_build.playlists().insert(part="snippet,contentDetails",
+                                                       body={"snippet": {"title": playlist_name}}).execute()
+        pl_id = new_pl['id']
+
+        for song in song_names:
+            song_id = get_song_id(song)
+
+            self.youtube_build.playlistItems().insert(part='snippet,contentDetails', body={
+                "snippet": {
+                    "playlistId": pl_id,
+                    "resourceId": {
+                        "kind": "youtube#video",
+                        "videoId": song_id
+                    }
+                }
+            }).execute()
+
+
+def get_song_id(song_name: str) -> str:
+    """Function that uses youtube_search to get song names, bypassing quota use"""
+
+    raw_song_names = YoutubeSearch(song_name, max_results=5).to_dict()
+    song_id = raw_song_names[0]['id']
+
+    return song_id
+
 
 def optimize_song_name(song_name: str, channel_title: str) -> str:
     """Optimize a song name to include both title and artist to get optimal results from spotify api"""
 
-    # Try splitting song into artist and title using SongNameSplit package
-    try:
-        song_info = SongNameSplit.namesplit(song_name, runQuietly=True)
+    valid_song = False
 
-        song_title = song_info['songname']
-        song_artist = song_info['artist']
+    # Optimize channel title
+    for word in song_name.split(' '):
+        if valid_song:
+            break
 
-        song_name = f'{song_artist} - {song_title}'
+        for artist in artists:
+            similarity = jellyfish.jaro_similarity(word.upper(), artist.upper())
 
-    # if song title is not standard
-    except SongNameSplit.NonStandardSongTitle:
+            if similarity > 0.80:
+                valid_song = True
+                break
 
-        # get every word from song
-        for item in song_name.split(' '):
-            try:
-                # see if word matches an artist
-                match = re.match(item.upper(), channel_title.upper())
-
-                # if song title already features an artist the title is ok
-                if match:
-                    song_name = song_name
-                    break
-
-            except re.error:
-                pass
-
-        # If song title doesn't include any artists check if the channel title is an artist and otherwise
-        # return the song title
-        else:
-            valid_artist = Spotify.check_artist(channel_title)
-
-            if valid_artist:
-                song_name = f'{channel_title} - {song_name}'
+    else:
+        song_name = f'{channel_title} - {song_name}'
 
     # remove unwanted terms from song name
     for term in terms_to_remove:
         song_name = song_name.replace(term, '')
         song_name = song_name.replace(term.upper(), '')
 
-    song_name = song_name.replace('  ', ' ')
-    song_name = song_name.replace('   ', ' ')
+    for i in range(2, 6):
+        song_name = song_name.replace(' ' * i, ' ')
 
     return song_name
+
+
+def estimate_time(song_count: int) -> None:
+    """Function that gets the estimated time for transfering to Spotify"""
+
+    tps = 0.55
+
+    seconds: float = tps * song_count
+
+    hours = int(seconds // 3600)
+    minutes = int((seconds - (hours * 3600)) / 60)
+    seconds: float = seconds - (hours * 3600) - (minutes * 60)
+
+    print(f'Estimated time: {hours} hours, {minutes} minutes and {round(seconds, 1)} seconds.')

@@ -6,7 +6,6 @@ from flask_login import LoginManager
 
 from Spotify_class import Spotify_functions
 from Youtube_class import Youtube
-from User_class import User
 
 # import setups
 load_dotenv()
@@ -23,7 +22,9 @@ login_manager.init_app(app)
 # Class setups
 Spotify = Spotify_functions()
 Youtube = Youtube(app)
-User = User()
+
+# Variables
+destination: str | None = None
 
 
 @login_manager.user_loader
@@ -37,11 +38,29 @@ def homepage() -> str:
 @app.route('/tospotify')
 def to_spotify() -> Response:
     """Redirection page entered by hitting the yt -> spotify button"""
+    global destination
+
+    destination = 'sp'
 
     # check if user is logged in, if yes get their id and otherwise redirect them to login
     if Spotify.check_token():
         Spotify.get_user_info()
         return redirect(url_for('get_yt_playlist'))
+    else:
+        return redirect(url_for('spotify_login'))
+
+
+@app.route('/toyoutube')
+def to_yt() -> Response:
+    """Redirection page entered by hitting the yt -> spotify button"""
+    global destination
+
+    destination = 'yt'
+
+    # check if user is logged in, if yes get their id and otherwise redirect them to login
+    if Spotify.check_token():
+        Spotify.get_user_info()
+        return redirect(url_for('get_sp_playlist'))
     else:
         return redirect(url_for('spotify_login'))
 
@@ -55,26 +74,33 @@ def spotify_login() -> Response:
 
 
 @app.route('/redirect')
-def spotify_redirect_page() -> Response:
+def redirect_page() -> Response:
     """Redirect page that redirects to get_yt_pl page"""
 
     # get access token from page link and get user id if needed
     Spotify.spotify_oauth.get_access_token(request.args['code'])
     Spotify.get_user_info()
 
-    return redirect(url_for('get_yt_playlist'))
+    if destination == 'yt':
+        return redirect(url_for('get_sp_playlist'))
+    else:
+        return redirect(url_for('get_yt_playlist'))
 
 
 @app.route('/get_youtube_playlist', methods=['GET', 'POST'])
 def get_yt_playlist() -> Response | str:
-    """Page that gets an id of a yt playlist from user and checks its validity"""
+    """Page that gets an id of and song names in a yt playlist and checks its validity"""
+    global destination
+
+    destination = 'sp'
 
     # check if user is logged in
     if not Spotify.check_token():
         return redirect(url_for('spotify_login'))
 
     # Create flow for Google oauth
-    Youtube.create_flow()
+    if not Youtube.flow:
+        Youtube.create_flow()
 
     while True:
 
@@ -94,6 +120,43 @@ def get_yt_playlist() -> Response | str:
             return render_template('youtube_playlist_select_page.html')
 
     Spotify.create_spotify_playlist(wanted_playlist_name, song_names)
+
+    return render_template('process_done.html')
+
+
+@app.route('/get_spotify_playlist', methods=['GET', 'POST'])
+def get_sp_playlist() -> Response | str:
+    """Page that gets an id of and song names in a spotify playlist and checks its validity"""
+    global destination
+
+    destination = 'yt'
+
+    # check if user is logged into spotify
+    if not Spotify.check_token():
+        return redirect(url_for('spotify_login'))
+
+    # Create flow for Google oauth
+    if not Youtube.flow:
+        Youtube.create_flow()
+
+    while True:
+
+        # wait until user clicks submit button
+        if request.method == 'POST':
+            id_input = request.form['sp_playlist_id']
+            wanted_playlist_name = request.form['yt_playlist_wanted_name']
+
+            if Spotify.validate_playlist(id_input):
+                song_names = Spotify.get_playlist_items(id_input)
+                break
+
+            else:
+                return render_template('spotify_playlist_select_page.html')
+
+        else:
+            return render_template('spotify_playlist_select_page.html')
+
+    Youtube.create_yt_playlist(wanted_playlist_name, song_names)
 
     return render_template('process_done.html')
 

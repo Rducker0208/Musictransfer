@@ -34,7 +34,7 @@ CLIENT_ID = os.getenv('CLIENT_ID')
 CLIENT_SECRET = os.getenv('CLIENT_SECRET')
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
-CLIENT_FILE = 'client_secrets.json'
+CLIENT_FILE = '../client_secrets.json'
 TOKEN_INFO = 'token_info'
 REDIRECT_URI = 'http://127.0.0.1:5000/ytplaylistselect'
 GOOGLE_SCOPES = ['https://www.googleapis.com/auth/youtube',
@@ -109,7 +109,7 @@ def to_spotify():
 @app.route('/getyoutubeplaylist', methods=['GET', 'POST'])
 def get_yt_playlist():
     create_flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-        'client_secrets.json', GOOGLE_SCOPES)
+        '../client_secrets.json', GOOGLE_SCOPES)
     credentials = create_flow.run_local_server()
     youtube = googleapiclient.discovery.build('youtube', 'v3', credentials=credentials)
     playlist_request = youtube.playlists().list(mine=True, part='snippet')
@@ -265,7 +265,7 @@ def get_spotify_playlist_items(playlist_id, wanted_name):
 # creer youtube playlist en voeg daar de items uit de spotify playlist aan toe
 def create_youtube_playlist(search_list, yt_pl_wanted_name):
     create_flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-        'client_secrets.json', GOOGLE_SCOPES)
+        '../client_secrets.json', GOOGLE_SCOPES)
     credentials = create_flow.run_local_server()
     youtube = googleapiclient.discovery.build('youtube', 'v3', credentials=credentials)
     new_playlist = youtube.playlists().insert(part="snippet,contentDetails", body={"snippet": {"title": yt_pl_wanted_name}})  # noqa
